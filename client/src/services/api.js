@@ -1,404 +1,207 @@
-const API_BASE = '/api';
+// Canonical API client for Ravi Prakash Portfolio
 
-export const api = {
-  // Public
-  getProfile: async () => {
-    const res = await fetch(`${API_BASE}/profile`);
-    return res.json();
-  },
-  getSkills: async () => {
-    const res = await fetch(`${API_BASE}/skills`);
-    return res.json();
-  },
-  getNotes: async (search = '', category = '') => {
-    const params = new URLSearchParams();
-    if (search) params.append('search', search);
-    if (category) params.append('category', category);
-    const res = await fetch(`${API_BASE}/notes?${params.toString()}`);
-    return res.json();
-  },
-  getNoteBySlug: async (slug) => {
-    const res = await fetch(`${API_BASE}/notes/${slug}`);
-    return res.json();
-  },
-  getProjects: async () => {
-    const res = await fetch(`${API_BASE}/projects`);
-    return res.json();
-  },
-  getProjectBySlug: async (slug) => {
-    const res = await fetch(`${API_BASE}/projects/${slug}`);
-    return res.json();
-  },
-  getCertifications: async () => {
-    const res = await fetch(`${API_BASE}/certifications`);
-    return res.json();
-  },
-  getResume: async () => {
-    const res = await fetch(`${API_BASE}/resume`);
-    return res.json();
-  },
-  sendContactMessage: async (payload) => {
-    const res = await fetch(`${API_BASE}/contact`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return res.json();
-  },
+// Read API URL from Vite environment variable, fallback to localhost in dev
+const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_BASE_URL = RAW_API_URL.replace(/\/+$/, ''); // Remove trailing slashes
 
-  // AI Assistant
-  askAI: async (query, history = []) => {
-    const res = await fetch(`${API_BASE}/ai/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, history }),
-    });
-    return res.json();
-  },
-  getAISuggestions: async () => {
-    const res = await fetch(`${API_BASE}/ai/suggestions`);
-    return res.json();
-  },
+// Media URL resolver - guarantees 100% valid canonical public URL
+export function getMediaUrl(pathOrUrl) {
+  if (!pathOrUrl) return '';
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://') || pathOrUrl.startsWith('data:')) {
+    return pathOrUrl;
+  }
+  const cleanPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/api/media/${pathOrUrl}`;
+  return `${API_BASE_URL}${cleanPath}`;
+}
 
-  // Admin Auth & Helpers
-  getSetupStatus: async () => {
-    const res = await fetch(`${API_BASE}/auth/setup-status`);
-    return res.json();
-  },
-  setupFirstAdmin: async (data) => {
-    const res = await fetch(`${API_BASE}/auth/setup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return res.json();
-  },
-  devResetPassword: async (data) => {
-    const res = await fetch(`${API_BASE}/auth/dev-reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return res.json();
-  },
-  login: async (username, password) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    return res.json();
-  },
-  verifyToken: async (token) => {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.json();
-  },
-  changePassword: async (token, currentPassword, newPassword) => {
-    const res = await fetch(`${API_BASE}/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-    return res.json();
-  },
+// Token storage helpers
+export function getAuthToken() {
+  return localStorage.getItem('portfolio_admin_token');
+}
 
-  // Admin Media Library
-  uploadMedia: async (token, formData) => {
-    const res = await fetch(`${API_BASE}/media/upload`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
-      body: formData,
-    });
-    return res.json();
-  },
-  getMediaFiles: async (token, search = '', type = 'all') => {
-    const params = new URLSearchParams();
-    if (search) params.append('search', search);
-    if (type && type !== 'all') params.append('type', type);
-    const res = await fetch(`${API_BASE}/media?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  updateMediaFile: async (token, id, data) => {
-    const res = await fetch(`${API_BASE}/media/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(data),
-    });
-    return res.json();
-  },
-  replaceMediaFile: async (token, id, formData) => {
-    const res = await fetch(`${API_BASE}/media/${id}/replace`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    return res.json();
-  },
-  deleteMediaFile: async (token, id) => {
-    const res = await fetch(`${API_BASE}/media/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+export function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem('portfolio_admin_token', token);
+  } else {
+    localStorage.removeItem('portfolio_admin_token');
+  }
+}
 
-  // Admin Resumes
-  adminGetResumes: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/resumes`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveResume: async (token, data) => {
-    const res = await fetch(`${API_BASE}/admin/resumes`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(data),
-    });
-    return res.json();
-  },
-  adminSetActiveResume: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/resumes/${id}/active`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminDeleteResume: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/resumes/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+// Universal fetch wrapper
+async function request(endpoint, options = {}) {
+  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const headers = { ...options.headers };
 
-  // Admin Stats & Profile
-  adminGetStats: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/stats`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminGetProfile: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminUpdateProfile: async (token, data) => {
-    const res = await fetch(`${API_BASE}/admin/profile`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(data),
-    });
-    return res.json();
-  },
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-  // Admin Notes
-  adminGetNotes: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/notes`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveNote: async (token, note, id = null) => {
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${API_BASE}/admin/notes/${id}` : `${API_BASE}/admin/notes`;
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  try {
     const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(note),
+      ...options,
+      headers
     });
-    return res.json();
-  },
-  adminDeleteNote: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/notes/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
 
-  // Admin Projects
-  adminGetProjects: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/projects`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveProject: async (token, project, id = null) => {
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${API_BASE}/admin/projects/${id}` : `${API_BASE}/admin/projects`;
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(project),
-    });
-    return res.json();
-  },
-  adminDeleteProject: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+    const isJson = res.headers.get('content-type')?.includes('application/json');
+    const data = isJson ? await res.json() : await res.text();
 
-  // Admin Skills
-  adminGetSkills: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/skills`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveSkill: async (token, skill, id = null) => {
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${API_BASE}/admin/skills/${id}` : `${API_BASE}/admin/skills`;
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(skill),
-    });
-    return res.json();
-  },
-  adminDeleteSkill: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/skills/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+    if (!res.ok) {
+      const errorMsg = (typeof data === 'object' && data?.error) ? data.error : `Request failed with status ${res.status}`;
+      throw new Error(errorMsg);
+    }
 
-  // Admin Certifications
-  adminGetCertifications: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/certifications`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveCertification: async (token, cert, id = null) => {
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${API_BASE}/admin/certifications/${id}` : `${API_BASE}/admin/certifications`;
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(cert),
-    });
-    return res.json();
-  },
-  adminDeleteCertification: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/certifications/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+    return data;
+  } catch (err) {
+    console.error(`[API Error] ${endpoint}:`, err);
+    throw err;
+  }
+}
 
-  // Admin Socials
-  adminGetSocials: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/socials`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveSocial: async (token, social, id = null) => {
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${API_BASE}/admin/socials/${id}` : `${API_BASE}/admin/socials`;
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(social),
-    });
-    return res.json();
-  },
-  adminDeleteSocial: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/socials/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+// ----------------- Public & Admin API Methods -----------------
 
-  // Admin AI Knowledge Base
-  adminGetAIKnowledge: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/ai-knowledge`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminSaveAIKnowledge: async (token, item, id = null) => {
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${API_BASE}/admin/ai-knowledge/${id}` : `${API_BASE}/admin/ai-knowledge`;
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(item),
-    });
-    return res.json();
-  },
-  adminDeleteAIKnowledge: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/ai-knowledge/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
+// Auth
+export async function loginAdmin(username, password) {
+  const data = await request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password })
+  });
+  if (data.token) {
+    setAuthToken(data.token);
+  }
+  return data;
+}
 
-  // Admin Messages
-  adminGetMessages: async (token) => {
-    const res = await fetch(`${API_BASE}/admin/messages`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminMarkMessageRead: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/messages/${id}/read`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-  adminDeleteMessage: async (token, id) => {
-    const res = await fetch(`${API_BASE}/admin/messages/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return res.json();
-  },
-};
+export async function verifyAdmin() {
+  return request('/api/auth/me', { method: 'GET' });
+}
+
+export function logoutAdmin() {
+  setAuthToken(null);
+}
+
+// Profile
+export async function getProfile() {
+  return request('/api/profile', { method: 'GET' });
+}
+
+export async function updateProfile(profileData) {
+  return request('/api/admin/profile', {
+    method: 'PUT',
+    body: JSON.stringify(profileData)
+  });
+}
+
+// Resume
+export async function getResume() {
+  return request('/api/resume', { method: 'GET' });
+}
+
+export async function uploadResume(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return request('/api/admin/resume', {
+    method: 'POST',
+    body: formData
+  });
+}
+
+export async function deleteResume() {
+  return request('/api/admin/resume', {
+    method: 'DELETE'
+  });
+}
+
+// File Upload (Images & PDFs)
+export async function uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return request('/api/admin/upload', {
+    method: 'POST',
+    body: formData
+  });
+}
+
+// Notes
+export async function getNotes(includeAll = false) {
+  const query = includeAll ? '?all=true' : '';
+  return request(`/api/notes${query}`, { method: 'GET' });
+}
+
+export async function getNoteBySlug(slug) {
+  return request(`/api/notes/${slug}`, { method: 'GET' });
+}
+
+export async function createNote(noteData) {
+  return request('/api/admin/notes', {
+    method: 'POST',
+    body: JSON.stringify(noteData)
+  });
+}
+
+export async function updateNote(id, noteData) {
+  return request(`/api/admin/notes/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(noteData)
+  });
+}
+
+export async function deleteNote(id) {
+  return request(`/api/admin/notes/${id}`, {
+    method: 'DELETE'
+  });
+}
+
+// Projects
+export async function getProjects() {
+  return request('/api/projects', { method: 'GET' });
+}
+
+export async function createProject(projectData) {
+  return request('/api/admin/projects', {
+    method: 'POST',
+    body: JSON.stringify(projectData)
+  });
+}
+
+export async function updateProject(id, projectData) {
+  return request(`/api/admin/projects/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(projectData)
+  });
+}
+
+export async function deleteProject(id) {
+  return request(`/api/admin/projects/${id}`, {
+    method: 'DELETE'
+  });
+}
+
+// Certificates
+export async function getCertificates() {
+  return request('/api/certificates', { method: 'GET' });
+}
+
+export async function createCertificate(certData) {
+  return request('/api/admin/certificates', {
+    method: 'POST',
+    body: JSON.stringify(certData)
+  });
+}
+
+export async function updateCertificate(id, certData) {
+  return request(`/api/admin/certificates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(certData)
+  });
+}
+
+export async function deleteCertificate(id) {
+  return request(`/api/admin/certificates/${id}`, {
+    method: 'DELETE'
+  });
+}

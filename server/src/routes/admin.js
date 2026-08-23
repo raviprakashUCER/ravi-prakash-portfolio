@@ -75,8 +75,8 @@ adminRouter.get('/notes', (req, res) => {
 
 adminRouter.post('/notes', (req, res) => {
   try {
-    const { title, slug, description, category, tags, content_md, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, is_public, is_published } = req.body;
-    let finalSlug = slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const { title, slug, description, category, tags, content_md, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, file_size, mime_type, is_public, is_published } = req.body;
+    let finalSlug = slug || (title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'note-' + Date.now());
     
     const existing = db.prepare('SELECT id FROM notes WHERE slug = ?').get(finalSlug);
     if (existing) {
@@ -84,20 +84,22 @@ adminRouter.post('/notes', (req, res) => {
     }
 
     const result = db.prepare(`
-      INSERT INTO notes (title, slug, description, category, tags, content_md, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, is_public, is_published)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO notes (title, slug, description, category, tags, content_md, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, file_size, mime_type, is_public, is_published)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       title,
       finalSlug,
-      description,
-      category,
-      tags,
-      content_md,
+      description || '',
+      category || 'General',
+      tags || '',
+      content_md || '',
       reading_time || '5 min read',
       difficulty || 'Beginner',
       cover_image_url || null,
       attachment_url || null,
       attachment_name || null,
+      file_size || null,
+      mime_type || (attachment_url?.endsWith('.pdf') ? 'application/pdf' : null),
       is_public !== false ? 1 : 0,
       is_published !== false ? 1 : 0
     );
@@ -110,12 +112,13 @@ adminRouter.post('/notes', (req, res) => {
 
 adminRouter.put('/notes/:id', (req, res) => {
   try {
-    const { title, slug, description, category, tags, content_md, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, is_public, is_published } = req.body;
+    const { title, slug, description, category, tags, content_md, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, file_size, mime_type, is_public, is_published } = req.body;
     db.prepare(`
       UPDATE notes SET
         title = ?, slug = ?, description = ?, category = ?, tags = ?,
         content_md = ?, reading_time = ?, difficulty = ?,
         cover_image_url = ?, attachment_url = ?, attachment_name = ?,
+        file_size = ?, mime_type = ?,
         is_public = ?, is_published = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
@@ -131,6 +134,8 @@ adminRouter.put('/notes/:id', (req, res) => {
       cover_image_url || null,
       attachment_url || null,
       attachment_name || null,
+      file_size || null,
+      mime_type || null,
       is_public ? 1 : 0,
       is_published ? 1 : 0,
       req.params.id
@@ -362,7 +367,7 @@ adminRouter.delete('/certifications/:id', (req, res) => {
 // 7. Resumes Management
 adminRouter.get('/resumes', (req, res) => {
   try {
-    const resumes = db.prepare('SELECT * FROM resumes ORDER BY uploaded_at DESC').all();
+    const resumes = db.prepare('SELECT * FROM resumes ORDER BY is_active DESC, uploaded_at DESC').all();
     res.json({ success: true, resumes });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -371,20 +376,30 @@ adminRouter.get('/resumes', (req, res) => {
 
 adminRouter.post('/resumes', (req, res) => {
   try {
-    const { version_name, file_url, media_file_id, is_active } = req.body;
+    const { version_name, file_url, filename, file_size, mime_type, media_file_id, is_active } = req.body;
     if (!file_url) {
       return res.status(400).json({ error: 'File URL is required for resume' });
     }
 
-    if (is_active) {
+    const shouldBeActive = is_active ? 1 : 0;
+
+    if (shouldBeActive) {
       db.prepare('UPDATE resumes SET is_active = 0').run();
       db.prepare('UPDATE profile SET resume_url = ? WHERE id = 1').run(file_url);
     }
 
     const result = db.prepare(`
-      INSERT INTO resumes (version_name, file_url, media_file_id, is_active)
-      VALUES (?, ?, ?, ?)
-    `).run(version_name || 'Resume ' + new Date().toLocaleDateString(), file_url, media_file_id || null, is_active ? 1 : 0);
+      INSERT INTO resumes (version_name, file_url, filename, file_size, mime_type, media_file_id, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      version_name || (filename ? filename.replace(/\.pdf$/i, '') : 'Resume ' + new Date().toLocaleDateString()),
+      file_url,
+      filename || path.basename(file_url),
+      file_size || null,
+      mime_type || 'application/pdf',
+      media_file_id || null,
+      shouldBeActive
+    );
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
@@ -399,6 +414,7 @@ adminRouter.put('/resumes/:id/active', (req, res) => {
       return res.status(404).json({ error: 'Resume not found' });
     }
 
+    // Ensure strictly ONE resume is active
     db.prepare('UPDATE resumes SET is_active = 0').run();
     db.prepare('UPDATE resumes SET is_active = 1 WHERE id = ?').run(req.params.id);
     db.prepare('UPDATE profile SET resume_url = ? WHERE id = 1').run(resume.file_url);
@@ -411,7 +427,20 @@ adminRouter.put('/resumes/:id/active', (req, res) => {
 
 adminRouter.delete('/resumes/:id', (req, res) => {
   try {
+    const resume = db.prepare('SELECT * FROM resumes WHERE id = ?').get(req.params.id);
     db.prepare('DELETE FROM resumes WHERE id = ?').run(req.params.id);
+
+    if (resume && resume.is_active) {
+      // Find the most recent remaining resume if any, or nullify profile.resume_url
+      const nextResume = db.prepare('SELECT * FROM resumes ORDER BY uploaded_at DESC LIMIT 1').get();
+      if (nextResume) {
+        db.prepare('UPDATE resumes SET is_active = 1 WHERE id = ?').run(nextResume.id);
+        db.prepare('UPDATE profile SET resume_url = ? WHERE id = 1').run(nextResume.file_url);
+      } else {
+        db.prepare('UPDATE profile SET resume_url = NULL WHERE id = 1').run();
+      }
+    }
+
     res.json({ success: true, message: 'Resume deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -526,3 +555,25 @@ adminRouter.delete('/messages/:id', (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// 11. Storage Management & Cloud Sync
+adminRouter.get('/storage/status', (req, res) => {
+  res.json({
+    success: true,
+    storage_provider: storageService.getDriverName(),
+    is_persistent_cloud: storageService.getDriverName() === 'cloudinary' || storageService.getDriverName() === 's3',
+    has_cloudinary: !!(config.cloudinary.cloudName || config.cloudinary.url),
+    has_s3: !!(config.s3.bucket)
+  });
+});
+
+adminRouter.post('/storage/migrate', async (req, res) => {
+  try {
+    const { runCloudStorageMigration } = await import('../services/cloudMigrationService.js');
+    await runCloudStorageMigration();
+    res.json({ success: true, message: 'Cloud storage migration completed' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+

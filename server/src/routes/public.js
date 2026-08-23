@@ -70,7 +70,7 @@ publicRouter.get('/skills', (req, res) => {
 publicRouter.get('/notes', (req, res) => {
   try {
     const { search, category } = req.query;
-    let query = 'SELECT id, slug, title, description, category, tags, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, views, created_at, updated_at FROM notes WHERE is_public = 1 AND is_published = 1';
+    let query = 'SELECT id, slug, title, description, category, tags, reading_time, difficulty, cover_image_url, attachment_url, attachment_name, file_size, mime_type, views, created_at, updated_at FROM notes WHERE is_public = 1 AND is_published = 1';
     const params = [];
 
     if (category && category !== 'All') {

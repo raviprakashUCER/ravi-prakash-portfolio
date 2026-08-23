@@ -1,4 +1,32 @@
-node_modules
+node_modules/
 .env
-dist
-build
+.env.*
+!.env.example
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+server/*.sqlite
+server/*.sqlite3
+server/*.sqlite-shm
+server/*.sqlite-wal
+
+# Uploaded/generated media
+uploads/
+server/uploads/
+server/media/
+server/test_uploads/
+
+# Build output
+client/dist/
+server/dist/
+
+# Logs
+*.log
+
+# Local test/verification files
+verify.js
+verify_*.js
+test_*.sqlite

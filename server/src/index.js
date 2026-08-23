@@ -1,46 +1,133 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { config } from './config.js';
-import { seedDatabase } from './db/seed.js';
-import { publicRouter } from './routes/public.js';
-import { authRouter } from './routes/auth.js';
-import { adminRouter } from './routes/admin.js';
-import { aiRouter } from './routes/ai.js';
-import { mediaRouter } from './routes/media.js';
+import { initDatabase } from './db.js';
+
+import authRoutes from './routes/auth.js';
+import profileRoutes from './routes/profile.js';
+import resumeRoutes from './routes/resume.js';
+import notesRoutes from './routes/notes.js';
+import projectsRoutes from './routes/projects.js';
+import certificatesRoutes from './routes/certificates.js';
+import mediaRoutes from './routes/media.js';
+import uploadRoutes from './routes/upload.js';
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '30mb' }));
-app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+// Initialize database schema and default records
+initDatabase();
 
-// Seed database on startup
-seedDatabase();
+// Helmet security headers (with crossOriginResourcePolicy allow for media files)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 
-// Health Check
+// CORS configuration
+const allowedOrigins = [
+  config.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173'
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, server-to-server tests)
+      if (!origin) return callback(null, true);
+      
+      // If frontend URL is set to a wildcard or origin matches allowed list or vercel preview
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        process.env.NODE_ENV !== 'production'
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error('CORS policy: Not allowed by origin'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  })
+);
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiter for login route
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // 30 requests per windowMs
+  message: { error: 'Too many login attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Health check route
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    service: 'Ravi Prakash Portfolio API',
+    uploadsDir: config.UPLOAD_DIR,
+    database: config.DATABASE_PATH
   });
 });
 
 // Mount Routes
-app.use('/media', mediaRouter);
-app.use('/api/media', mediaRouter);
-app.use('/api', publicRouter);
-app.use('/api/auth', authRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/ai', aiRouter);
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin/me', authRoutes);
 
-// Global Error Handler
+app.use('/api/profile', profileRoutes);
+app.use('/api/admin/profile', profileRoutes);
+
+app.use('/api/resume', resumeRoutes);
+app.use('/api/admin/resume', resumeRoutes);
+
+app.use('/api/notes', notesRoutes);
+app.use('/api/admin/notes', notesRoutes);
+
+app.use('/api/projects', projectsRoutes);
+app.use('/api/admin/projects', projectsRoutes);
+
+app.use('/api/certificates', certificatesRoutes);
+app.use('/api/admin/certificates', certificatesRoutes);
+
+app.use('/api/admin/upload', uploadRoutes);
+
+// Single canonical media route
+app.use('/api/media', mediaRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: `Route ${req.originalUrl} not found` });
+});
+
+// Central error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled API Error:', err);
-  res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  console.error('[Unhandled Error]', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error'
+  });
 });
 
-app.listen(config.port, () => {
-  console.log(`🚀 Server running on http://localhost:${config.port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(config.PORT, () => {
+    console.log(`========================================`);
+    console.log(` Portfolio Server Running on port ${config.PORT}`);
+    console.log(` SQLite Database: ${config.DATABASE_PATH}`);
+    console.log(` Upload Directory: ${config.UPLOAD_DIR}`);
+    console.log(` Media Route: http://localhost:${config.PORT}/api/media/:filename`);
+    console.log(`========================================`);
+  });
+}
+
+export default app;

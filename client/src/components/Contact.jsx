@@ -1,191 +1,156 @@
 import React, { useState } from 'react';
-import { Mail, Send, CheckCircle2, AlertCircle, MessageSquare, User, AtSign, FileText } from 'lucide-react';
-import { api } from '../services/api';
+import { Mail, Phone, MapPin, Send, CheckCircle2, MessageSquare } from 'lucide-react';
 
-export function Contact({ profile, socials }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: '',
-    honeypot: '', // bot protection
-  });
-  const [status, setStatus] = useState({ state: 'idle', message: '' });
+export default function Contact({ profile }) {
+  const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
+  const [sent, setSent] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) {
-      setStatus({ state: 'error', message: 'Please fill in all required fields.' });
-      return;
-    }
-
-    setStatus({ state: 'sending', message: 'Sending message...' });
-
-    try {
-      const res = await api.sendContactMessage(formData);
-      if (res.success) {
-        setStatus({
-          state: 'success',
-          message: 'Thank you! Your message has been sent successfully. Ravi will get back to you soon.'
-        });
-        setFormData({ name: '', email: '', subject: '', message: '', honeypot: '' });
-      } else {
-        setStatus({ state: 'error', message: res.error || 'Failed to send message.' });
-      }
-    } catch (err) {
-      setStatus({ state: 'error', message: 'Network error. Please try again later.' });
-    }
+    const mailtoSubject = encodeURIComponent(formData.subject || `Message from ${formData.name}`);
+    const mailtoBody = encodeURIComponent(`From: ${formData.name} (${formData.email})\n\nMessage:\n${formData.message}`);
+    const targetEmail = profile?.email || 'ravi@example.com';
+    
+    window.location.href = `mailto:${targetEmail}?subject=${mailtoSubject}&body=${mailtoBody}`;
+    setSent(true);
+    setTimeout(() => setSent(false), 6000);
   };
 
   return (
-    <section id="contact" className="py-20 px-4 sm:px-6 lg:px-8 relative">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center space-y-2 mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono text-cyan-300">
-            <Mail className="w-3.5 h-3.5" />
-            <span>DIRECT COMMUNICATION</span>
+    <section id="contact" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="text-center mb-14">
+        <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-cyan-400 uppercase">
+          Get In Touch
+        </h2>
+        <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-white">
+          Contact & Collaboration
+        </p>
+        <div className="w-16 h-1 bg-cyan-500 mx-auto mt-4 rounded-full" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* Contact Info Cards */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <h3 className="text-lg font-bold text-white mb-2">Let's build something impactful</h3>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              I am open to engineering opportunities, consulting, architectural discussions, and technical collaborations. Feel free to reach out directly.
+            </p>
+
+            <div className="pt-4 border-t border-slate-800 space-y-3">
+              <a
+                href={`mailto:${profile?.email || 'ravi@example.com'}`}
+                className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 text-slate-300 hover:text-white transition-colors"
+              >
+                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">Email</div>
+                  <div className="text-sm font-semibold text-cyan-300 break-all">{profile?.email || 'ravi@example.com'}</div>
+                </div>
+              </a>
+
+              {profile?.phone && (
+                <div className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-300">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400">Phone</div>
+                    <div className="text-sm font-semibold text-white">{profile.phone}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-300">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">Location</div>
+                  <div className="text-sm font-semibold text-white">{profile?.location || 'Worldwide'}</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
-            Get In <span className="cyber-gradient-text">Touch</span>
-          </h2>
-          <p className="text-slate-400 text-sm max-w-xl mx-auto">
-            Have a question about cybersecurity, a project collaboration, or just want to connect? Send a message below.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-          {/* Contact Info Card */}
-          <div className="md:col-span-5 glass-panel rounded-2xl p-6 sm:p-8 space-y-6 border border-slate-800">
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white">Let's Connect</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Ravi is always open to discussing technology, cybersecurity concepts, software development, and student collaboration.
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-2 text-xs">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-mono uppercase">Inquiries</span>
-                  <span className="text-slate-200 font-medium">Direct Web Form</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                  <MessageSquare className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-mono uppercase">Interactive</span>
-                  <span className="text-slate-200 font-medium">Ask Ravi AI 24/7</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 font-mono">
-              ⚡ Anti-Spam protected • Direct inbox delivery
-            </div>
+        {/* Message Form */}
+        <div className="lg:col-span-7 glass-panel p-6 sm:p-8 rounded-2xl border border-slate-800">
+          <div className="flex items-center gap-2 text-cyan-400 font-bold text-base mb-6">
+            <MessageSquare className="w-5 h-5" />
+            <span>Send a Direct Message</span>
           </div>
 
-          {/* Contact Form */}
-          <div className="md:col-span-7 glass-panel rounded-2xl p-6 sm:p-8 border border-slate-800">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Invisible Honeypot */}
-              <input
-                type="text"
-                name="honeypot"
-                value={formData.honeypot}
-                onChange={(e) => setFormData({ ...formData, honeypot: e.target.value })}
-                className="hidden"
-                tabIndex="-1"
-                autoComplete="off"
-              />
+          {sent && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-sm flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>Email client opened! Thank you for getting in touch.</span>
+            </div>
+          )}
 
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-cyan-400" /> Your Name *
-                </label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Your Name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Alex Morgan"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-cyan-500 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
+                  placeholder="John Doe"
+                  className="w-full px-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <AtSign className="w-3.5 h-3.5 text-cyan-400" /> Email Address *
-                </label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Your Email</label>
                 <input
                   type="email"
                   required
-                  placeholder="e.g. alex@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-cyan-500 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
+                  placeholder="john@example.com"
+                  className="w-full px-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-cyan-400" /> Subject
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Cybersecurity project inquiry"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-cyan-500 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Subject</label>
+              <input
+                type="text"
+                required
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="Project Inquiry / Opportunity"
+                className="w-full px-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-cyan-400" /> Message *
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  placeholder="Write your message here..."
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-cyan-500 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors resize-none"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Message</label>
+              <textarea
+                rows={5}
+                required
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                placeholder="Write your message here..."
+                className="w-full px-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors resize-none"
+              />
+            </div>
 
-              {/* Status feedback */}
-              {status.state === 'error' && (
-                <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{status.message}</span>
-                </div>
-              )}
-
-              {status.state === 'success' && (
-                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{status.message}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={status.state === 'sending'}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-semibold text-sm shadow-glow-cyan transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-                <span>{status.state === 'sending' ? 'Sending Message...' : 'Send Message'}</span>
-              </button>
-            </form>
-          </div>
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5"
+            >
+              <Send className="w-4 h-4" />
+              <span>Send Message</span>
+            </button>
+          </form>
         </div>
+
       </div>
     </section>
   );

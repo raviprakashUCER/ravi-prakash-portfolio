@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Sparkles, Moon, Sun, Menu, X, Lock, ExternalLink } from 'lucide-react';
+import { Menu, X, Shield, Lock, ExternalLink, User, FileText, Briefcase, BookOpen, Award, Mail } from 'lucide-react';
+import { getAuthToken } from '../services/api';
 
-export function Navbar({ activeSection, setActiveSection, darkMode, setDarkMode, onOpenAI, onOpenAdmin, isAdminLoggedIn }) {
+export default function Navbar({ activeSection, setActiveSection, onOpenAdmin, isAdminLoggedIn }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -14,21 +15,19 @@ export function Navbar({ activeSection, setActiveSection, darkMode, setDarkMode,
   }, []);
 
   const navItems = [
-    { id: 'home', label: 'Home' },
-    { id: 'about', label: 'About' },
-    { id: 'skills', label: 'Skills' },
-    { id: 'notes', label: 'Notes' },
-    { id: 'projects', label: 'Projects' },
-    { id: 'resume', label: 'Resume' },
-    { id: 'certifications', label: 'Certifications' },
-    { id: 'contact', label: 'Contact' },
+    { id: 'home', label: 'Home', icon: User },
+    { id: 'about', label: 'About', icon: User },
+    { id: 'skills', label: 'Skills', icon: Shield },
+    { id: 'projects', label: 'Projects', icon: Briefcase },
+    { id: 'notes', label: 'Notes', icon: BookOpen },
+    { id: 'resume', label: 'Resume', icon: FileText },
+    { id: 'certificates', label: 'Certificates', icon: Award },
+    { id: 'contact', label: 'Contact', icon: Mail },
   ];
 
   const handleNavClick = (id) => {
     setActiveSection(id);
-    setMobileMenuOpen(false);
-    
-    // If it's a section on page, scroll smoothly
+    setIsOpen(false);
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
@@ -36,146 +35,102 @@ export function Navbar({ activeSection, setActiveSection, darkMode, setDarkMode,
   };
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        scrolled
-          ? 'bg-[#090d16]/90 dark:bg-[#090d16]/90 bg-white/90 backdrop-blur-md border-b border-cyan-500/10 shadow-lg shadow-black/10 py-3'
-          : 'bg-transparent py-5'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Brand */}
-        <button
-          onClick={() => handleNavClick('home')}
-          className="flex items-center gap-2.5 group text-left focus:outline-none"
-        >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-600 p-[1.5px] shadow-glow-cyan transition-transform group-hover:scale-105">
-            <div className="w-full h-full bg-[#090d16] rounded-[10px] flex items-center justify-center">
-              <Shield className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      scrolled ? 'bg-[#090d16]/90 backdrop-blur-md border-b border-cyan-500/10 shadow-lg shadow-black/30' : 'bg-transparent'
+    }`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          
+          {/* Logo / Brand */}
+          <div 
+            onClick={() => handleNavClick('home')}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+              RP
+            </div>
+            <div>
+              <span className="text-lg font-bold text-white tracking-wide group-hover:text-cyan-400 transition-colors">
+                Ravi Prakash
+              </span>
+              <span className="hidden sm:inline-block text-xs text-slate-400 ml-2 border-l border-slate-700 pl-2">
+                Portfolio
+              </span>
             </div>
           </div>
-          <div>
-            <span className="font-bold text-lg tracking-tight text-white group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
-              Ravi Prakash
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            </span>
-            <span className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-              CS • Cyber • AI
-            </span>
-          </div>
-        </button>
 
-        {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-900/60 dark:bg-slate-900/60 bg-slate-100/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-800 dark:border-slate-800 border-slate-200 shadow-inner">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeSection === item.id
-                  ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Actions (Ask AI, Theme toggle, Admin) */}
-        <div className="hidden sm:flex items-center gap-3">
-          {/* Ask My AI Button */}
-          <button
-            onClick={onOpenAI}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-medium text-xs shadow-glow-cyan hover:shadow-glow-purple hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-cyan-200 animate-spin-slow" />
-            <span>Ask My AI</span>
-          </button>
-
-          {/* Dark / Light Mode Toggle */}
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2.5 rounded-xl border border-slate-800 dark:border-slate-800 bg-slate-900/80 text-slate-300 hover:text-cyan-300 hover:border-cyan-500/30 transition-all focus:outline-none"
-            title="Toggle theme"
-          >
-            {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-cyan-400" />}
-          </button>
-
-          {/* Admin Login Button */}
-          <button
-            onClick={onOpenAdmin}
-            className={`p-2.5 rounded-xl border transition-all ${
-              isAdminLoggedIn
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                : 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white hover:border-slate-700'
-            }`}
-            title={isAdminLoggedIn ? "Admin Dashboard (Logged In)" : "Admin Portal"}
-          >
-            <Lock className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Mobile Hamburger */}
-        <div className="flex sm:hidden items-center gap-2">
-          <button
-            onClick={onOpenAI}
-            className="p-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 text-white text-xs"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="sm:hidden bg-[#090d16]/98 border-b border-cyan-500/20 px-6 py-5 backdrop-blur-xl animate-fadeIn">
-          <div className="grid grid-cols-2 gap-2 mb-4">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`py-2.5 px-3 rounded-lg text-left text-sm font-medium ${
+                className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   activeSection === item.id
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                    : 'text-slate-300 hover:bg-slate-800/50'
+                    ? 'text-cyan-400 bg-cyan-950/40 border border-cyan-500/30 shadow-sm shadow-cyan-500/10'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/40'
                 }`}
               >
                 {item.label}
               </button>
             ))}
-          </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+            {/* Admin Portal Button */}
             <button
-              onClick={() => {
-                setDarkMode(!darkMode);
-                setMobileMenuOpen(false);
-              }}
-              className="flex items-center gap-2 text-xs font-medium text-slate-300"
-            >
-              {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-cyan-400" />}
-              <span>{darkMode ? 'Light Theme' : 'Dark Theme'}</span>
-            </button>
-            <button
-              onClick={() => {
-                onOpenAdmin();
-                setMobileMenuOpen(false);
-              }}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300"
+              onClick={onOpenAdmin}
+              className={`ml-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                isAdminLoggedIn
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
+                  : 'bg-slate-800/80 text-slate-300 border border-slate-700 hover:text-white hover:border-slate-600'
+              }`}
+              title={isAdminLoggedIn ? "Admin Dashboard (Active)" : "Admin Login"}
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Admin Portal</span>
+              <span>{isAdminLoggedIn ? 'Admin Panel' : 'Admin'}</span>
+            </button>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={onOpenAdmin}
+              className={`p-2 rounded-lg text-xs flex items-center gap-1 border ${
+                isAdminLoggedIn 
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                  : 'bg-slate-800 text-slate-300 border-slate-700'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none"
+            >
+              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Drawer */}
+      {isOpen && (
+        <div className="md:hidden bg-[#0c1220] border-b border-cyan-500/20 px-4 pt-2 pb-6 space-y-1 shadow-2xl">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleNavClick(item.id)}
+              className={`w-full text-left px-4 py-2.5 rounded-lg text-base font-medium flex items-center gap-3 transition-colors ${
+                activeSection === item.id
+                  ? 'text-cyan-400 bg-cyan-950/50 border border-cyan-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <item.icon className="w-4 h-4 text-cyan-400/80" />
+              {item.label}
+            </button>
+          ))}
+        </div>
       )}
-    </header>
+    </nav>
   );
 }

@@ -1,267 +1,199 @@
-import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
-import { Hero } from './components/Hero';
-import { About } from './components/About';
-import { Skills } from './components/Skills';
-import { NotesHub } from './components/NotesHub';
-import { NoteDetail } from './components/NoteDetail';
-import { Projects } from './components/Projects';
-import { ResumeViewer } from './components/ResumeViewer';
-import { Certifications } from './components/Certifications';
-import { CertificationDetail } from './components/CertificationDetail';
-import { Contact } from './components/Contact';
-import { Footer } from './components/Footer';
-import { AIAssistant } from './components/AIAssistant';
-import { AdminDashboard } from './components/AdminDashboard';
-import { api } from './services/api';
-import { Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  getProfile, getResume, getNotes, getProjects, 
+  getCertificates, verifyAdmin, getAuthToken, API_BASE_URL 
+} from './services/api';
+import Navbar from './components/Navbar';
+import Hero from './components/Hero';
+import About from './components/About';
+import Skills from './components/Skills';
+import Projects from './components/Projects';
+import Notes from './components/Notes';
+import Resume from './components/Resume';
+import Certificates from './components/Certificates';
+import Contact from './components/Contact';
+import Footer from './components/Footer';
+import AdminLoginModal from './components/AdminLoginModal';
+import AdminDashboard from './components/AdminDashboard';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
-export function App() {
+export default function App() {
   const [activeSection, setActiveSection] = useState('home');
-  const [darkMode, setDarkMode] = useState(true);
-  const [isAIOpen, setIsAIOpen] = useState(false);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem('ravi_admin_token') || '');
-
-  // Detail views for direct slug navigation
-  const [selectedNote, setSelectedNote] = useState(null);
-  const [selectedCert, setSelectedCert] = useState(null);
-
-  // Bookmarks in localStorage
-  const [bookmarkedIds, setBookmarkedIds] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('ravi_bookmarked_notes') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
-
-  // Data states
-  const [profileData, setProfileData] = useState(null);
-  const [socials, setSocials] = useState([]);
-  const [journey, setJourney] = useState([]);
-  const [skillsGrouped, setSkillsGrouped] = useState({});
-  const [skillsList, setSkillsList] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [resume, setResume] = useState(null);
   const [notes, setNotes] = useState([]);
-  const [notesCategories, setNotesCategories] = useState(['All']);
   const [projects, setProjects] = useState([]);
-  const [certs, setCerts] = useState([]);
-  const [resumeData, setResumeData] = useState(null);
+  const [certificates, setCertificates] = useState([]);
+  
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
+
+  const [backendError, setBackendError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Sync dark class on document root
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    }
-  }, [darkMode]);
-
-  // Load all initial public data
-  const fetchData = async () => {
+  // Fetch all portfolio data from Render backend
+  const loadPortfolioData = useCallback(async () => {
+    setLoading(true);
+    setBackendError(null);
     try {
-      setLoading(true);
-      const [pRes, sRes, nRes, prRes, cRes, rRes] = await Promise.all([
-        api.getProfile(),
-        api.getSkills(),
-        api.getNotes(),
-        api.getProjects(),
-        api.getCertifications(),
-        api.getResume(),
+      const [profileRes, resumeRes, notesRes, projectsRes, certsRes] = await Promise.allSettled([
+        getProfile(),
+        getResume(),
+        getNotes(),
+        getProjects(),
+        getCertificates()
       ]);
 
-      if (pRes.success) {
-        setProfileData(pRes.data.profile);
-        setSocials(pRes.data.socials || []);
-        setJourney(pRes.data.journey || []);
+      if (profileRes.status === 'fulfilled') setProfile(profileRes.value);
+      if (resumeRes.status === 'fulfilled') setResume(resumeRes.value?.resume || null);
+      if (notesRes.status === 'fulfilled') setNotes(Array.isArray(notesRes.value) ? notesRes.value : []);
+      if (projectsRes.status === 'fulfilled') setProjects(Array.isArray(projectsRes.value) ? projectsRes.value : []);
+      if (certsRes.status === 'fulfilled') setCertificates(Array.isArray(certsRes.value) ? certsRes.value : []);
+
+      // If all failed, report backend connection error
+      const allFailed = [profileRes, resumeRes, notesRes, projectsRes, certsRes].every(r => r.status === 'rejected');
+      if (allFailed) {
+        setBackendError(`Unable to connect to backend server at ${API_BASE_URL}. Please verify the server is running.`);
       }
-      if (sRes.success) {
-        setSkillsGrouped(sRes.data.grouped || {});
-        setSkillsList(sRes.data.skills || []);
-      }
-      if (nRes.success) {
-        setNotes(nRes.data.notes || []);
-        setNotesCategories(nRes.data.categories || ['All']);
-      }
-      if (prRes.success) {
-        setProjects(prRes.data || []);
-      }
-      if (cRes.success) {
-        setCerts(cRes.data || []);
-      }
-      if (rRes.success) {
-        setResumeData(rRes.data);
+
+      // Check existing admin token validity
+      if (getAuthToken()) {
+        try {
+          await verifyAdmin();
+          setIsAdminLoggedIn(true);
+        } catch {
+          setIsAdminLoggedIn(false);
+        }
+      } else {
+        setIsAdminLoggedIn(false);
       }
     } catch (err) {
-      console.error('Failed to load portfolio data:', err);
+      console.error('[Portfolio Init Error]', err);
+      setBackendError(err.message || 'Failed to connect to backend service.');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
-
-    // Direct hash or path detection
-    const path = window.location.pathname;
-    if (path.includes('admin')) {
-      setIsAdminOpen(true);
-    } else if (path.includes('resume')) {
-      setActiveSection('resume');
-    } else if (path.includes('notes')) {
-      setActiveSection('notes');
-    } else if (path.includes('certifications')) {
-      setActiveSection('certifications');
-    } else if (path.includes('projects')) {
-      setActiveSection('projects');
-    }
   }, []);
 
-  const handleToggleBookmark = (id) => {
-    const next = bookmarkedIds.includes(id)
-      ? bookmarkedIds.filter((b) => b !== id)
-      : [...bookmarkedIds, id];
-    setBookmarkedIds(next);
-    localStorage.setItem('ravi_bookmarked_notes', JSON.stringify(next));
+  useEffect(() => {
+    loadPortfolioData();
+  }, [loadPortfolioData]);
+
+  // Handle Admin Button Click
+  const handleOpenAdmin = () => {
+    if (isAdminLoggedIn) {
+      setAdminDashboardOpen(true);
+    } else {
+      setAdminLoginOpen(true);
+    }
   };
 
-  const handleNavigate = (id) => {
-    setSelectedNote(null);
-    setSelectedCert(null);
-    setActiveSection(id);
-    const element = document.getElementById(id);
+  const handleLoginSuccess = () => {
+    setIsAdminLoggedIn(true);
+    setAdminDashboardOpen(true);
+    loadPortfolioData();
+  };
+
+  const handleNavigate = (sectionId) => {
+    setActiveSection(sectionId);
+    const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('ravi_admin_token');
-    setAuthToken('');
-    fetchData();
-  };
-
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Sticky Navigation Bar */}
+      
+      {/* Backend Error Banner */}
+      {backendError && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-rose-950/90 border-b border-rose-800/80 px-4 py-2 text-xs text-rose-200 backdrop-blur-md flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>Backend Unavailable: {backendError}</span>
+          </div>
+          <button
+            onClick={loadPortfolioData}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-900 hover:bg-rose-800 text-white font-semibold transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Retry Connection</span>
+          </button>
+        </div>
+      )}
+
+      {/* Main Navbar */}
       <Navbar
         activeSection={activeSection}
-        setActiveSection={(id) => {
-          setSelectedNote(null);
-          setSelectedCert(null);
-          handleNavigate(id);
-        }}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        onOpenAI={() => setIsAIOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
-        isAdminLoggedIn={!!authToken}
+        setActiveSection={setActiveSection}
+        onOpenAdmin={handleOpenAdmin}
+        isAdminLoggedIn={isAdminLoggedIn}
       />
 
-      {/* Main Content Sections */}
-      <main className="relative">
-        {selectedNote ? (
-          <NoteDetail
-            note={selectedNote}
-            onBack={() => setSelectedNote(null)}
-            isBookmarked={bookmarkedIds.includes(selectedNote.id)}
-            onToggleBookmark={handleToggleBookmark}
-          />
-        ) : selectedCert ? (
-          <CertificationDetail
-            cert={selectedCert}
-            onBack={() => setSelectedCert(null)}
-          />
-        ) : (
-          <>
-            <Hero
-              profile={profileData}
-              socials={socials}
-              onOpenAI={() => setIsAIOpen(true)}
-              onNavigate={handleNavigate}
-            />
+      {/* Sections */}
+      <main className="space-y-12">
+        <Hero
+          profile={profile}
+          resume={resume}
+          onNavigate={handleNavigate}
+        />
 
-            <About profile={profileData} journey={journey} />
+        <About
+          profile={profile}
+        />
 
-            <Skills skillsGrouped={skillsGrouped} skillsList={skillsList} />
+        <Skills
+          profile={profile}
+        />
 
-            <NotesHub
-              notes={notes}
-              categories={notesCategories}
-              onSelectNote={async (n) => {
-                try {
-                  const res = await api.getNoteBySlug(n.slug);
-                  if (res.success && res.data.note) {
-                    setSelectedNote(res.data.note);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  } else {
-                    setSelectedNote(n);
-                  }
-                } catch (e) {
-                  setSelectedNote(n);
-                }
-              }}
-              bookmarkedIds={bookmarkedIds}
-              onToggleBookmark={handleToggleBookmark}
-            />
+        <Projects
+          projects={projects}
+        />
 
-            <Projects projects={projects} />
+        <Notes
+          notes={notes}
+        />
 
-            <ResumeViewer resumeData={resumeData} />
+        <Resume
+          resume={resume}
+        />
 
-            <Certifications
-              certs={certs}
-              onSelectCert={(c) => {
-                setSelectedCert(c);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
+        <Certificates
+          certificates={certificates}
+        />
 
-            <Contact profile={profileData} socials={socials} />
-          </>
-        )}
+        <Contact
+          profile={profile}
+        />
       </main>
 
       {/* Footer */}
       <Footer
-        socials={socials}
+        profile={profile}
+        onOpenAdmin={handleOpenAdmin}
         onNavigate={handleNavigate}
-        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
-      {/* Floating Ask Ravi AI Trigger Button */}
-      {!isAIOpen && (
-        <button
-          onClick={() => setIsAIOpen(true)}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-cyan-500 via-purple-600 to-pink-500 text-white font-bold text-xs shadow-2xl shadow-cyan-500/40 hover:shadow-glow-purple hover:scale-105 active:scale-95 transition-all cursor-pointer group border border-white/20"
-        >
-          <div className="w-6 h-6 rounded-full bg-black/30 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow" />
-          </div>
-          <span>Ask Ravi AI</span>
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        </button>
-      )}
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={adminLoginOpen}
+        onClose={() => setAdminLoginOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
 
-      {/* Grounded AI Assistant Drawer */}
-      <AIAssistant isOpen={isAIOpen} onClose={() => setIsAIOpen(false)} />
-
-      {/* Admin Dashboard Modal */}
+      {/* Admin Dashboard */}
       <AdminDashboard
-        isOpen={isAdminOpen}
-        onClose={() => {
-          setIsAdminOpen(false);
-          fetchData();
-        }}
-        onLogout={handleLogout}
-        authToken={authToken}
-        setAuthToken={setAuthToken}
+        isOpen={adminDashboardOpen}
+        onClose={() => setAdminDashboardOpen(false)}
+        profile={profile}
+        resume={resume}
+        notes={notes}
+        projects={projects}
+        certificates={certificates}
+        onRefreshAll={loadPortfolioData}
       />
+
     </div>
   );
 }
-
-export default App;

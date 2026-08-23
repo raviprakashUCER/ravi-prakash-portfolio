@@ -1,158 +1,139 @@
 import React from 'react';
-import {
-  MapPin,
-  Target,
-  Compass,
-  GraduationCap,
-  Sparkles,
-  BookOpen,
-  CheckCircle2,
-  Cpu,
-  Layers,
-  Terminal
-} from 'lucide-react';
+import { User, Mail, Phone, MapPin, Globe, Code2, Server, Cloud, Cpu } from 'lucide-react';
 
-export function About({ profile, journey }) {
-  const interestsList = Array.isArray(profile?.interests)
-    ? profile.interests
-    : typeof profile?.interests === 'string'
-    ? JSON.parse(profile.interests || '[]')
-    : [];
+export default function About({ profile }) {
+  const socialLinks = profile?.social_links || {};
 
   return (
-    <section id="about" className="py-20 px-4 sm:px-6 lg:px-8 relative">
-      <div className="max-w-6xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center space-y-2 mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono text-cyan-300">
-            <Compass className="w-3.5 h-3.5" />
-            <span>PROFILE & LEARNING TRAJECTORY</span>
+    <section id="about" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="text-center mb-14">
+        <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-cyan-400 uppercase">
+          About Me
+        </h2>
+        <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-white">
+          Background & Technical Passion
+        </p>
+        <div className="w-16 h-1 bg-cyan-500 mx-auto mt-4 rounded-full" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* Bio Card */}
+        <div className="lg:col-span-7 glass-panel p-8 rounded-2xl border border-slate-800 space-y-6">
+          <div className="flex items-center gap-3 text-cyan-400 font-semibold text-lg">
+            <User className="w-5 h-5" />
+            <span>Professional Summary</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
-            About <span className="cyber-gradient-text">Ravi Prakash</span>
-          </h2>
-          <p className="text-slate-400 text-sm max-w-2xl mx-auto">
-            A dedicated Computer Science student committed to practical technology exploration, security research, and open knowledge sharing.
-          </p>
-        </div>
 
-        {/* Top Cards: Bio & Core Focus */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
-          {/* Main Bio Card */}
-          <div className="md:col-span-7 glass-panel rounded-2xl p-6 sm:p-8 space-y-5 border border-slate-800">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.name} className="w-12 h-12 rounded-xl object-cover border border-cyan-500/40 shadow-sm" />
-              ) : (
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                  <Terminal className="w-5 h-5" />
-                </div>
-              )}
-              <div>
-                <h3 className="text-lg font-bold text-white">{profile?.name || 'Ravi Prakash'}</h3>
-                <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-mono">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>{profile?.location || 'India'}</span>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-slate-300 leading-relaxed text-sm sm:text-base">
-              {profile?.bio ||
-                'Ravi is a Computer Science student building practical skills in cybersecurity, programming, AI, web technologies, and software development. He is interested in building practical technology projects and documenting what he learns.'}
+          <div className="text-slate-300 space-y-4 leading-relaxed text-base">
+            <p>
+              {profile?.bio || 
+                "I am a passionate software developer specializing in building reliable web applications, distributed backend services, and clean cloud systems. I believe in architectural simplicity, robust testing, and pragmatic design."}
             </p>
-
-            <div className="space-y-2 pt-2">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Target className="w-4 h-4 text-purple-400" /> Career Goal & Vision
-              </h4>
-              <p className="text-sm text-slate-300 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-                {profile?.career_goal ||
-                  'Aspiring Cybersecurity Professional & Software Engineer focused on secure systems, threat analysis, and AI-driven automation.'}
-              </p>
-            </div>
+            <p>
+              My focus is on engineering high-efficiency solutions that seamlessly bridge user-friendly client applications with performant, secure backend services. Whether deploying scalable databases or crafting responsive interfaces, I maintain high standards for maintainability and code quality.
+            </p>
           </div>
 
-          {/* Quick Metrics & Current Focus Card */}
-          <div className="md:col-span-5 space-y-6">
-            <div className="glass-panel rounded-2xl p-6 space-y-4 border border-cyan-500/20">
-              <h3 className="text-sm font-mono uppercase tracking-wider text-cyan-300 flex items-center gap-2">
-                <Layers className="w-4 h-4" /> Current Active Focus
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-cyan-950/30 p-3.5 rounded-xl border border-cyan-500/20">
-                {profile?.current_focus ||
-                  'Computer Science, Cybersecurity, AI, Programming and Software Development.'}
-              </p>
-
-              {/* Learning Interests Pills */}
-              <div className="pt-2">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2.5">
-                  Core Study Areas:
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {interestsList.length > 0 ? (
-                    interestsList.map((interest, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 transition-colors"
-                      >
-                        {interest}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-slate-500">None added yet.</span>
-                  )}
-                </div>
-              </div>
+          <div className="pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+              <Code2 className="w-5 h-5 text-cyan-400 mx-auto mb-1" />
+              <div className="text-xs text-slate-400">Frontend</div>
+              <div className="text-sm font-bold text-white">React & Vite</div>
+            </div>
+            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+              <Server className="w-5 h-5 text-indigo-400 mx-auto mb-1" />
+              <div className="text-xs text-slate-400">Backend</div>
+              <div className="text-sm font-bold text-white">Node & Express</div>
+            </div>
+            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+              <Cpu className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
+              <div className="text-xs text-slate-400">Database</div>
+              <div className="text-sm font-bold text-white">SQLite & SQL</div>
+            </div>
+            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+              <Cloud className="w-5 h-5 text-purple-400 mx-auto mb-1" />
+              <div className="text-xs text-slate-400">Deployments</div>
+              <div className="text-sm font-bold text-white">Render & Vercel</div>
             </div>
           </div>
         </div>
 
-        {/* Learning Journey Timeline */}
-        <div className="glass-panel rounded-2xl p-6 sm:p-8 border border-slate-800">
-          <div className="flex items-center justify-between mb-8 border-b border-slate-800 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Learning Journey & Milestones</h3>
-                <p className="text-xs text-slate-400">Continuous technical progression and practical lab exploration</p>
-              </div>
-            </div>
+        {/* Contact Info Card */}
+        <div className="lg:col-span-5 glass-panel p-8 rounded-2xl border border-slate-800 space-y-6">
+          <div className="flex items-center gap-3 text-cyan-400 font-semibold text-lg">
+            <Globe className="w-5 h-5" />
+            <span>Contact & Details</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {journey && journey.length > 0 ? (
-              journey.map((item, index) => (
-                <div
-                  key={item.id || index}
-                  className="bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 hover:border-cyan-500/30 transition-all flex flex-col justify-between space-y-3"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-purple-400 bg-purple-950/50 px-2 py-0.5 rounded border border-purple-500/20">
-                        {item.category || 'Domain'}
-                      </span>
-                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/20">
-                        {item.status || 'Active'}
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-semibold text-white">{item.topic}</h4>
-                    <p className="text-xs text-slate-300 leading-relaxed">{item.description}</p>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800 text-[10px] font-mono text-cyan-400">
-                    Status: {item.status || 'Ongoing'}
-                  </div>
+          <div className="space-y-4">
+            <div className="flex items-start gap-4 p-3.5 bg-slate-900/50 rounded-xl border border-slate-800/80">
+              <MapPin className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="text-xs text-slate-400 font-medium">Location</div>
+                <div className="text-sm font-semibold text-white">{profile?.location || 'Remote / Worldwide'}</div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-3.5 bg-slate-900/50 rounded-xl border border-slate-800/80">
+              <Mail className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="text-xs text-slate-400 font-medium">Email Address</div>
+                <a href={`mailto:${profile?.email || 'ravi@example.com'}`} className="text-sm font-semibold text-cyan-300 hover:underline break-all">
+                  {profile?.email || 'ravi@example.com'}
+                </a>
+              </div>
+            </div>
+
+            {profile?.phone && (
+              <div className="flex items-start gap-4 p-3.5 bg-slate-900/50 rounded-xl border border-slate-800/80">
+                <Phone className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs text-slate-400 font-medium">Phone</div>
+                  <div className="text-sm font-semibold text-white">{profile.phone}</div>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-4 text-center py-6 text-slate-500 text-xs font-mono">
-                Learning journey entries will appear here.
               </div>
             )}
           </div>
+
+          {/* Social Links buttons */}
+          <div className="pt-2">
+            <div className="text-xs text-slate-400 font-medium mb-3">Connect Online:</div>
+            <div className="flex flex-wrap gap-2">
+              {socialLinks.github && (
+                <a
+                  href={socialLinks.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                >
+                  GitHub
+                </a>
+              )}
+              {socialLinks.linkedin && (
+                <a
+                  href={socialLinks.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                >
+                  LinkedIn
+                </a>
+              )}
+              {socialLinks.twitter && (
+                <a
+                  href={socialLinks.twitter}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                >
+                  Twitter / X
+                </a>
+              )}
+            </div>
+          </div>
         </div>
+
       </div>
     </section>
   );
