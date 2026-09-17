@@ -1,3 +1,6 @@
 User-agent: *
 Allow: /
-Sitemap: https://raviprakash.dev/sitemap.xml
+Disallow: /api/admin/
+Disallow: /admin
+
+Sitemap: https://ravi-prakash-portfolio-dxrj-jvqhdbj89-ravi-24f1.vercel.app/sitemap.xml

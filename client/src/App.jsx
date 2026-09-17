@@ -4,6 +4,7 @@ import {
   getCertificates, verifyAdmin, getAuthToken, API_BASE_URL 
 } from './services/api';
 import Navbar from './components/Navbar';
+import SEO from './components/SEO';
 import Hero from './components/Hero';
 import About from './components/About';
 import Skills from './components/Skills';
@@ -106,6 +107,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       
+      {/* Dynamic SEO Meta & Schema.org Management */}
+      <SEO profile={profile} />
+
       {/* Backend Error Banner */}
       {backendError && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-rose-950/90 border-b border-rose-800/80 px-4 py-2 text-xs text-rose-200 backdrop-blur-md flex items-center justify-between">
