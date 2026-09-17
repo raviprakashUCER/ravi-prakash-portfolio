@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs';
+import path from 'path';
 import { config } from './config.js';
 import { initDatabase } from './db.js';
 
@@ -69,13 +71,29 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// Health check route
+// Health check route with persistent storage status
 app.get('/api/health', (req, res) => {
+  const dbExists = fs.existsSync(config.DATABASE_PATH);
+  const uploadsExists = fs.existsSync(config.UPLOAD_DIR);
+  let fileCount = 0;
+  if (uploadsExists) {
+    try {
+      fileCount = fs.readdirSync(config.UPLOAD_DIR).length;
+    } catch (e) {}
+  }
+
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uploadsDir: config.UPLOAD_DIR,
-    database: config.DATABASE_PATH
+    database: {
+      path: config.DATABASE_PATH,
+      exists: dbExists
+    },
+    uploads: {
+      path: config.UPLOAD_DIR,
+      exists: uploadsExists,
+      fileCount
+    }
   });
 });
 
@@ -122,11 +140,17 @@ app.use((err, req, res, next) => {
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(config.PORT, '0.0.0.0', () => {
+    const dbDir = path.dirname(config.DATABASE_PATH);
+    const dbExists = fs.existsSync(config.DATABASE_PATH);
+    const uploadsExists = fs.existsSync(config.UPLOAD_DIR);
+
     console.log(`========================================`);
     console.log(` Portfolio Server Running on port ${config.PORT} (0.0.0.0)`);
-    console.log(` SQLite Database: ${config.DATABASE_PATH}`);
-    console.log(` Upload Directory: ${config.UPLOAD_DIR}`);
-    console.log(` Media Route: http://localhost:${config.PORT}/api/media/:filename`);
+    console.log(` Database File:    ${config.DATABASE_PATH} (${dbExists ? 'Exists' : 'Initialized'})`);
+    console.log(` Database Dir:     ${dbDir} (${fs.existsSync(dbDir) ? 'Ready' : 'Created'})`);
+    console.log(` Upload Directory: ${config.UPLOAD_DIR} (${uploadsExists ? 'Ready' : 'Created'})`);
+    console.log(` Media Route:      /api/media/:filename`);
+    console.log(` Frontend URL:     ${config.FRONTEND_URL}`);
     console.log(`========================================`);
   });
 }
