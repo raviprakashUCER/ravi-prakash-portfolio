@@ -45,7 +45,7 @@ export default function SEO({ profile, activeNote }) {
     // Canonical link management (uses live production origin with Vercel fallback)
     const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost'))
       ? window.location.origin
-      : 'https://ravi-prakash-portfolio-dxrj-jvqhdbj89-ravi-24f1.vercel.app';
+      : 'https://ravi-prakash-portfolio-dxrj.vercel.app';
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
     const canonicalUrl = `${origin}${pathname === '/' ? '/' : pathname}`;
     

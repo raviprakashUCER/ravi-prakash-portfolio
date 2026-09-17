@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/admin/
 Disallow: /admin
 
-Sitemap: https://ravi-prakash-portfolio-dxrj-jvqhdbj89-ravi-24f1.vercel.app/sitemap.xml
+Sitemap: https://ravi-prakash-portfolio-dxrj.vercel.app/sitemap.xml
