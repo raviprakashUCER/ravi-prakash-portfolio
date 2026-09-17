@@ -40,10 +40,11 @@ app.use(
       // Allow requests with no origin (like mobile apps, curl, server-to-server tests)
       if (!origin) return callback(null, true);
       
-      // If frontend URL is set to a wildcard or origin matches allowed list or vercel preview
+      // If frontend URL is set to a wildcard or origin matches allowed list, vercel preview, or render domain
       if (
         allowedOrigins.includes(origin) ||
         origin.endsWith('.vercel.app') ||
+        origin.endsWith('.onrender.com') ||
         process.env.NODE_ENV !== 'production'
       ) {
         return callback(null, true);
@@ -120,9 +121,9 @@ app.use((err, req, res, next) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(config.PORT, () => {
+  app.listen(config.PORT, '0.0.0.0', () => {
     console.log(`========================================`);
-    console.log(` Portfolio Server Running on port ${config.PORT}`);
+    console.log(` Portfolio Server Running on port ${config.PORT} (0.0.0.0)`);
     console.log(` SQLite Database: ${config.DATABASE_PATH}`);
     console.log(` Upload Directory: ${config.UPLOAD_DIR}`);
     console.log(` Media Route: http://localhost:${config.PORT}/api/media/:filename`);
