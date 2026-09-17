@@ -1,14 +1,24 @@
 import express from 'express';
-import { db } from '../db.js';
+import { supabase } from '../supabase.js';
 import { requireAdminAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Public Get All Certificates
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM certificates ORDER BY issue_date DESC, created_at DESC').all();
-    res.json(rows);
+    const { data: rows, error } = await supabase
+      .from('certificates')
+      .select('*')
+      .order('issue_date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[Certificates Get Error]', error);
+      return res.status(500).json({ error: 'Failed to fetch certificates' });
+    }
+
+    res.json(rows || []);
   } catch (err) {
     console.error('[Certificates Get Error]', err);
     res.status(500).json({ error: 'Failed to fetch certificates' });
@@ -16,7 +26,7 @@ router.get('/', (req, res) => {
 });
 
 // Admin Create Certificate
-router.post('/', requireAdminAuth, (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       title,
@@ -30,20 +40,24 @@ router.post('/', requireAdminAuth, (req, res) => {
       return res.status(400).json({ error: 'Certificate title is required' });
     }
 
-    const stmt = db.prepare(`
-      INSERT INTO certificates (title, organization, issue_date, file_url, credential_url)
-      VALUES (?, ?, ?, ?, ?)
-    `);
+    const { data: created, error } = await supabase
+      .from('certificates')
+      .insert({
+        title,
+        organization: organization || '',
+        issue_date: issue_date || '',
+        file_url: file_url || '',
+        credential_url: credential_url || '',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    const info = stmt.run(
-      title,
-      organization || '',
-      issue_date || '',
-      file_url || '',
-      credential_url || ''
-    );
+    if (error) {
+      console.error('[Certificates Create Error]', error);
+      return res.status(500).json({ error: 'Failed to create certificate' });
+    }
 
-    const created = db.prepare('SELECT * FROM certificates WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json({
       success: true,
       certificate: created
@@ -55,11 +69,16 @@ router.post('/', requireAdminAuth, (req, res) => {
 });
 
 // Admin Update Certificate
-router.put('/:id', requireAdminAuth, (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const certId = req.params.id;
-    const existing = db.prepare('SELECT * FROM certificates WHERE id = ?').get(certId);
-    if (!existing) {
+    const { data: existing, error: fetchErr } = await supabase
+      .from('certificates')
+      .select('*')
+      .eq('id', certId)
+      .maybeSingle();
+
+    if (fetchErr || !existing) {
       return res.status(404).json({ error: 'Certificate not found' });
     }
 
@@ -71,26 +90,24 @@ router.put('/:id', requireAdminAuth, (req, res) => {
       credential_url
     } = req.body;
 
-    const stmt = db.prepare(`
-      UPDATE certificates SET
-        title = ?,
-        organization = ?,
-        issue_date = ?,
-        file_url = ?,
-        credential_url = ?
-      WHERE id = ?
-    `);
+    const { data: updated, error: updateErr } = await supabase
+      .from('certificates')
+      .update({
+        title: title !== undefined ? title : existing.title,
+        organization: organization !== undefined ? organization : existing.organization,
+        issue_date: issue_date !== undefined ? issue_date : existing.issue_date,
+        file_url: file_url !== undefined ? file_url : existing.file_url,
+        credential_url: credential_url !== undefined ? credential_url : existing.credential_url
+      })
+      .eq('id', certId)
+      .select()
+      .single();
 
-    stmt.run(
-      title !== undefined ? title : existing.title,
-      organization !== undefined ? organization : existing.organization,
-      issue_date !== undefined ? issue_date : existing.issue_date,
-      file_url !== undefined ? file_url : existing.file_url,
-      credential_url !== undefined ? credential_url : existing.credential_url,
-      certId
-    );
+    if (updateErr) {
+      console.error('[Certificates Update Error]', updateErr);
+      return res.status(500).json({ error: 'Failed to update certificate' });
+    }
 
-    const updated = db.prepare('SELECT * FROM certificates WHERE id = ?').get(certId);
     res.json({
       success: true,
       certificate: updated
@@ -102,13 +119,18 @@ router.put('/:id', requireAdminAuth, (req, res) => {
 });
 
 // Admin Delete Certificate
-router.delete('/:id', requireAdminAuth, (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
-    const stmt = db.prepare('DELETE FROM certificates WHERE id = ?');
-    const result = stmt.run(req.params.id);
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Certificate not found' });
+    const { error } = await supabase
+      .from('certificates')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) {
+      console.error('[Certificates Delete Error]', error);
+      return res.status(500).json({ error: 'Failed to delete certificate' });
     }
+
     res.json({ success: true, message: 'Certificate deleted successfully' });
   } catch (err) {
     console.error('[Certificates Delete Error]', err);

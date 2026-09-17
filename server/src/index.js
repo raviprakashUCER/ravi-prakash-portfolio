@@ -2,10 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import fs from 'fs';
-import path from 'path';
-import { config } from './config.js';
+import { config, validateSupabaseConfig } from './config.js';
 import { initDatabase } from './db.js';
+import { supabase } from './supabase.js';
 
 import authRoutes from './routes/auth.js';
 import profileRoutes from './routes/profile.js';
@@ -18,10 +17,12 @@ import uploadRoutes from './routes/upload.js';
 
 const app = express();
 
-// Initialize database schema and default records
-initDatabase();
+// Initialize database schema and admin synchronization on startup
+initDatabase().catch((err) => {
+  console.error('[DB Startup Error]', err);
+});
 
-// Helmet security headers (with crossOriginResourcePolicy allow for media files)
+// Helmet security headers (with crossOriginResourcePolicy allow for media assets)
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
@@ -42,7 +43,7 @@ app.use(
       // Allow requests with no origin (like mobile apps, curl, server-to-server tests)
       if (!origin) return callback(null, true);
       
-      // If frontend URL is set to a wildcard or origin matches allowed list, vercel preview, or render domain
+      // If frontend URL is set or matches allowed list, vercel preview, or render domain
       if (
         allowedOrigins.includes(origin) ||
         origin.endsWith('.vercel.app') ||
@@ -71,28 +72,54 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// Health check route with persistent storage status
-app.get('/api/health', (req, res) => {
-  const dbExists = fs.existsSync(config.DATABASE_PATH);
-  const uploadsExists = fs.existsSync(config.UPLOAD_DIR);
-  let fileCount = 0;
-  if (uploadsExists) {
+// Health check route with Supabase DB & Storage verification
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'unconfigured';
+  let storageStatus = 'unconfigured';
+  let latencyMs = null;
+
+  if (config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY) {
+    const start = Date.now();
     try {
-      fileCount = fs.readdirSync(config.UPLOAD_DIR).length;
-    } catch (e) {}
+      const { error } = await supabase.from('admin').select('id').limit(1);
+      latencyMs = Date.now() - start;
+      if (error) {
+        dbStatus = `error: ${error.message}`;
+      } else {
+        dbStatus = 'connected';
+      }
+    } catch (e) {
+      dbStatus = `error: ${e.message}`;
+    }
+
+    try {
+      const { error: bucketError } = await supabase.storage
+        .from(config.SUPABASE_STORAGE_BUCKET)
+        .list('', { limit: 1 });
+      if (bucketError) {
+        storageStatus = `error: ${bucketError.message}`;
+      } else {
+        storageStatus = 'accessible';
+      }
+    } catch (e) {
+      storageStatus = `error: ${e.message}`;
+    }
   }
 
-  res.json({
-    status: 'ok',
+  const isHealthy = dbStatus === 'connected' && storageStatus === 'accessible';
+
+  res.status(isHealthy || dbStatus === 'unconfigured' ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : (dbStatus === 'unconfigured' ? 'ready_for_supabase' : 'degraded'),
     timestamp: new Date().toISOString(),
     database: {
-      path: config.DATABASE_PATH,
-      exists: dbExists
+      provider: 'supabase-postgresql',
+      status: dbStatus,
+      latencyMs
     },
-    uploads: {
-      path: config.UPLOAD_DIR,
-      exists: uploadsExists,
-      fileCount
+    storage: {
+      provider: 'supabase-storage',
+      bucket: config.SUPABASE_STORAGE_BUCKET,
+      status: storageStatus
     }
   });
 });
@@ -140,15 +167,10 @@ app.use((err, req, res, next) => {
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(config.PORT, '0.0.0.0', () => {
-    const dbDir = path.dirname(config.DATABASE_PATH);
-    const dbExists = fs.existsSync(config.DATABASE_PATH);
-    const uploadsExists = fs.existsSync(config.UPLOAD_DIR);
-
     console.log(`========================================`);
     console.log(` Portfolio Server Running on port ${config.PORT} (0.0.0.0)`);
-    console.log(` Database File:    ${config.DATABASE_PATH} (${dbExists ? 'Exists' : 'Initialized'})`);
-    console.log(` Database Dir:     ${dbDir} (${fs.existsSync(dbDir) ? 'Ready' : 'Created'})`);
-    console.log(` Upload Directory: ${config.UPLOAD_DIR} (${uploadsExists ? 'Ready' : 'Created'})`);
+    console.log(` Database:         Supabase PostgreSQL`);
+    console.log(` Storage Bucket:   ${config.SUPABASE_STORAGE_BUCKET}`);
     console.log(` Media Route:      /api/media/:filename`);
     console.log(` Frontend URL:     ${config.FRONTEND_URL}`);
     console.log(`========================================`);

@@ -1,7 +1,5 @@
 import multer from 'multer';
 import path from 'path';
-import crypto from 'crypto';
-import { config } from '../config.js';
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -18,18 +16,8 @@ const ALLOWED_EXTENSIONS = new Set([
   '.webp'
 ]);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, config.UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const cleanExt = ALLOWED_EXTENSIONS.has(ext) ? ext : '.bin';
-    const randomHex = crypto.randomBytes(8).toString('hex');
-    const safeName = `${Date.now()}-${randomHex}${cleanExt}`;
-    cb(null, safeName);
-  }
-});
+// Use memoryStorage so file buffer is held in memory for streaming directly to Supabase Storage
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();

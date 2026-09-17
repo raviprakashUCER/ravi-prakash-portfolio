@@ -1,14 +1,15 @@
 import express from 'express';
-import { db } from '../db.js';
+import { supabase } from '../supabase.js';
 import { requireAdminAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Helper to safely parse JSON
-function safeParseJson(str, defaultValue) {
-  if (!str) return defaultValue;
+// Helper to safely parse JSON if it comes as a string (from SQLite legacy) or pass through if object
+function safeParseJson(data, defaultValue) {
+  if (!data) return defaultValue;
+  if (typeof data === 'object') return data;
   try {
-    return JSON.parse(str);
+    return JSON.parse(data);
   } catch (e) {
     return defaultValue;
   }
@@ -25,12 +26,23 @@ function formatProfile(row) {
 }
 
 // Public Get Profile
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const profile = db.prepare('SELECT * FROM profile WHERE id = 1').get();
+    const { data: profile, error } = await supabase
+      .from('profile')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Profile Get Error]', error);
+      return res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
+
     res.json(formatProfile(profile));
   } catch (err) {
     console.error('[Profile Get Error]', err);
@@ -39,7 +51,7 @@ router.get('/', (req, res) => {
 });
 
 // Admin Update Profile
-router.put('/', requireAdminAuth, (req, res) => {
+router.put('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       name,
@@ -53,38 +65,34 @@ router.put('/', requireAdminAuth, (req, res) => {
       skills
     } = req.body;
 
-    const socialLinksStr = typeof social_links === 'object' ? JSON.stringify(social_links) : (social_links || '{}');
-    const skillsStr = typeof skills === 'object' ? JSON.stringify(skills) : (skills || '[]');
+    const parsedSocialLinks = typeof social_links === 'string' ? safeParseJson(social_links, {}) : (social_links || {});
+    const parsedSkills = typeof skills === 'string' ? safeParseJson(skills, []) : (skills || []);
 
-    const stmt = db.prepare(`
-      INSERT INTO profile (id, name, headline, bio, profile_photo, location, email, phone, social_links, skills, updated_at)
-      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        headline = excluded.headline,
-        bio = excluded.bio,
-        profile_photo = excluded.profile_photo,
-        location = excluded.location,
-        email = excluded.email,
-        phone = excluded.phone,
-        social_links = excluded.social_links,
-        skills = excluded.skills,
-        updated_at = CURRENT_TIMESTAMP
-    `);
+    const updatePayload = {
+      id: 1,
+      name: name || 'Ravi Prakash',
+      headline: headline || '',
+      bio: bio || '',
+      profile_photo: profile_photo || '',
+      location: location || '',
+      email: email || '',
+      phone: phone || '',
+      social_links: parsedSocialLinks,
+      skills: parsedSkills,
+      updated_at: new Date().toISOString()
+    };
 
-    stmt.run(
-      name || 'Ravi Prakash',
-      headline || '',
-      bio || '',
-      profile_photo || '',
-      location || '',
-      email || '',
-      phone || '',
-      socialLinksStr,
-      skillsStr
-    );
+    const { data: updated, error } = await supabase
+      .from('profile')
+      .upsert(updatePayload)
+      .select()
+      .single();
 
-    const updated = db.prepare('SELECT * FROM profile WHERE id = 1').get();
+    if (error) {
+      console.error('[Profile Update Error]', error);
+      return res.status(500).json({ error: 'Failed to update profile' });
+    }
+
     res.json({
       success: true,
       profile: formatProfile(updated)

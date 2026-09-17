@@ -1,13 +1,14 @@
 import express from 'express';
-import { db } from '../db.js';
+import { supabase } from '../supabase.js';
 import { requireAdminAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-function safeParseJson(str, defaultValue) {
-  if (!str) return defaultValue;
+function safeParseJson(data, defaultValue) {
+  if (!data) return defaultValue;
+  if (typeof data === 'object') return data;
   try {
-    return JSON.parse(str);
+    return JSON.parse(data);
   } catch (e) {
     return defaultValue;
   }
@@ -22,10 +23,20 @@ function formatProject(row) {
 }
 
 // Public Get All Projects
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM projects ORDER BY display_order ASC, created_at DESC').all();
-    res.json(rows.map(formatProject));
+    const { data: rows, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[Projects Get Error]', error);
+      return res.status(500).json({ error: 'Failed to fetch projects' });
+    }
+
+    res.json((rows || []).map(formatProject));
   } catch (err) {
     console.error('[Projects Get Error]', err);
     res.status(500).json({ error: 'Failed to fetch projects' });
@@ -33,7 +44,7 @@ router.get('/', (req, res) => {
 });
 
 // Admin Create Project
-router.post('/', requireAdminAuth, (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       title,
@@ -49,24 +60,28 @@ router.post('/', requireAdminAuth, (req, res) => {
       return res.status(400).json({ error: 'Project title is required' });
     }
 
-    const techStr = typeof technologies === 'object' ? JSON.stringify(technologies) : (technologies || '[]');
+    const parsedTech = typeof technologies === 'string' ? safeParseJson(technologies, []) : (technologies || []);
 
-    const stmt = db.prepare(`
-      INSERT INTO projects (title, description, technologies, github_url, demo_url, image_url, display_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+    const { data: created, error } = await supabase
+      .from('projects')
+      .insert({
+        title,
+        description: description || '',
+        technologies: parsedTech,
+        github_url: github_url || '',
+        demo_url: demo_url || '',
+        image_url: image_url || '',
+        display_order: parseInt(display_order, 10) || 0,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    const info = stmt.run(
-      title,
-      description || '',
-      techStr,
-      github_url || '',
-      demo_url || '',
-      image_url || '',
-      display_order || 0
-    );
+    if (error) {
+      console.error('[Projects Create Error]', error);
+      return res.status(500).json({ error: error.message || 'Failed to create project' });
+    }
 
-    const created = db.prepare('SELECT * FROM projects WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json({
       success: true,
       project: formatProject(created)
@@ -78,11 +93,16 @@ router.post('/', requireAdminAuth, (req, res) => {
 });
 
 // Admin Update Project
-router.put('/:id', requireAdminAuth, (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const projectId = req.params.id;
-    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-    if (!existing) {
+    const { data: existing, error: fetchErr } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (fetchErr || !existing) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
@@ -96,32 +116,30 @@ router.put('/:id', requireAdminAuth, (req, res) => {
       display_order
     } = req.body;
 
-    const techStr = technologies !== undefined ? (typeof technologies === 'object' ? JSON.stringify(technologies) : technologies) : existing.technologies;
+    const parsedTech = technologies !== undefined
+      ? (typeof technologies === 'string' ? safeParseJson(technologies, []) : technologies)
+      : existing.technologies;
 
-    const stmt = db.prepare(`
-      UPDATE projects SET
-        title = ?,
-        description = ?,
-        technologies = ?,
-        github_url = ?,
-        demo_url = ?,
-        image_url = ?,
-        display_order = ?
-      WHERE id = ?
-    `);
+    const { data: updated, error: updateErr } = await supabase
+      .from('projects')
+      .update({
+        title: title !== undefined ? title : existing.title,
+        description: description !== undefined ? description : existing.description,
+        technologies: parsedTech,
+        github_url: github_url !== undefined ? github_url : existing.github_url,
+        demo_url: demo_url !== undefined ? demo_url : existing.demo_url,
+        image_url: image_url !== undefined ? image_url : existing.image_url,
+        display_order: display_order !== undefined ? parseInt(display_order, 10) : existing.display_order
+      })
+      .eq('id', projectId)
+      .select()
+      .single();
 
-    stmt.run(
-      title !== undefined ? title : existing.title,
-      description !== undefined ? description : existing.description,
-      techStr,
-      github_url !== undefined ? github_url : existing.github_url,
-      demo_url !== undefined ? demo_url : existing.demo_url,
-      image_url !== undefined ? image_url : existing.image_url,
-      display_order !== undefined ? display_order : existing.display_order,
-      projectId
-    );
+    if (updateErr) {
+      console.error('[Projects Update Error]', updateErr);
+      return res.status(500).json({ error: updateErr.message || 'Failed to update project' });
+    }
 
-    const updated = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
     res.json({
       success: true,
       project: formatProject(updated)
@@ -133,13 +151,18 @@ router.put('/:id', requireAdminAuth, (req, res) => {
 });
 
 // Admin Delete Project
-router.delete('/:id', requireAdminAuth, (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
-    const stmt = db.prepare('DELETE FROM projects WHERE id = ?');
-    const result = stmt.run(req.params.id);
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Project not found' });
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) {
+      console.error('[Projects Delete Error]', error);
+      return res.status(500).json({ error: 'Failed to delete project' });
     }
+
     res.json({ success: true, message: 'Project deleted successfully' });
   } catch (err) {
     console.error('[Projects Delete Error]', err);

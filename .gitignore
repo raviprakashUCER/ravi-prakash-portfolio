@@ -30,3 +30,6 @@ server/dist/
 verify.js
 verify_*.js
 test_*.sqlite
+*.bak
+uploads_bak/
+
