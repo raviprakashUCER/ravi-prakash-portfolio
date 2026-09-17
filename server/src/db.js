@@ -87,13 +87,23 @@ export function initDatabase() {
     );
   `);
 
-  // Seed Admin user if not exists
-  const existingAdmin = db.prepare('SELECT id FROM admin WHERE username = ?').get(config.ADMIN_USERNAME);
-  if (!existingAdmin) {
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(config.ADMIN_PASSWORD, salt);
-    db.prepare('INSERT INTO admin (username, password_hash) VALUES (?, ?)').run(config.ADMIN_USERNAME, hash);
-    console.log(`[DB] Default admin created: ${config.ADMIN_USERNAME}`);
+  // Synchronize Admin user credentials with environment configuration
+  const salt = bcrypt.genSaltSync(10);
+  const hash = bcrypt.hashSync(config.ADMIN_PASSWORD, salt);
+
+  const targetAdmin = db.prepare('SELECT id FROM admin WHERE username = ?').get(config.ADMIN_USERNAME);
+  if (targetAdmin) {
+    db.prepare('UPDATE admin SET password_hash = ? WHERE id = ?').run(hash, targetAdmin.id);
+    console.log(`[DB] Admin credentials synchronized for: ${config.ADMIN_USERNAME}`);
+  } else {
+    const anyAdmin = db.prepare('SELECT id FROM admin LIMIT 1').get();
+    if (anyAdmin) {
+      db.prepare('UPDATE admin SET username = ?, password_hash = ? WHERE id = ?').run(config.ADMIN_USERNAME, hash, anyAdmin.id);
+      console.log(`[DB] Admin credentials synchronized for: ${config.ADMIN_USERNAME}`);
+    } else {
+      db.prepare('INSERT INTO admin (username, password_hash) VALUES (?, ?)').run(config.ADMIN_USERNAME, hash);
+      console.log(`[DB] Admin created: ${config.ADMIN_USERNAME}`);
+    }
   }
 
   // Seed default Profile if not exists
